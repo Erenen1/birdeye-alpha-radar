@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  ml_service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    container_name: birdeye_ml_service
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Eğer Telegram ayarlarını docker-compose üzerinden vermek istersen:
+    # env_file:
+    #   - .env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: birdeye_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - ML_SERVICE_URL=http://ml_service:8000
+    env_file:
+      - .env
+    depends_on:
+      - ml_service
+    restart: unless-stopped
