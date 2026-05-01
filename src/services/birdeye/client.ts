@@ -50,9 +50,18 @@ export async function getTrendingTokens(): Promise<TrendingToken[]> {
  * Yeni listelenen tokenları getirir
  */
 export async function getNewListings(): Promise<NewListingToken[]> {
-  // Hackathon endpoint örneği: /v2/tokens/new_listing
-  const response = await fetchBirdeye<BirdeyeResponse<{ items: NewListingToken[] }>>("/v2/tokens/new_listing?limit=20");
-  return response.data.items || [];
+  // Hackathon endpoint örneği: /defi/v2/tokens/new_listing
+  const response = await fetchBirdeye<BirdeyeResponse<{ items: NewListingToken[] }>>("/defi/v2/tokens/new_listing?limit=20");
+  return response.data?.items || [];
+}
+
+/**
+ * Token Detaylarını Getirir (Overview)
+ * Hackathon Puanı İçin: Buy/Sell ratio, holders, unique wallets gibi derin verileri çeker.
+ */
+export async function getTokenOverview(address: string): Promise<any> {
+  const response = await fetchBirdeye<BirdeyeResponse<any>>(`/defi/token_overview?address=${address}`);
+  return response.data || null;
 }
 
 /**

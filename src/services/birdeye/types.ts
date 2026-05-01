@@ -10,8 +10,12 @@ export interface TrendingToken {
   price: number;
   liquidity: number;
   volume24hUSD: number;
+  volume24hChangePercent?: number;
   price24hChangePercent: number;
   logoURI?: string;
+  marketcap?: number;
+  fdv?: number;
+  rank?: number;
   // Dashboard için türetilecek skorlar
   riskScore?: number;
   momentumScore?: number;
@@ -25,7 +29,9 @@ export interface NewListingToken {
   liquidity: number;
   volume24hUSD: number;
   price24hChangePercent: number;
-  listingTime: string;
+  listingTime?: string;
+  liquidityAddedAt?: string;
+  source?: string;
   logoURI?: string;
 }
 
