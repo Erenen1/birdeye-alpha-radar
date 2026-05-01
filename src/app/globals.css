@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-gray-200 antialiased selection:bg-primary/30;
+  }
+}
+
+@layer components {
+  /* Cam efekti (Glassmorphism) utility class'ı */
+  .glass-panel {
+    @apply bg-surface/80 backdrop-blur-md border border-border rounded-xl shadow-lg;
+  }
+  
+  /* Sinyal renkleri için özel text/border glow efektleri */
+  .glow-primary {
+    @apply text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.5)];
+  }
+  .glow-success {
+    @apply text-success drop-shadow-[0_0_8px_rgba(16,185,129,0.5)];
+  }
+  .glow-danger {
+    @apply text-danger drop-shadow-[0_0_8px_rgba(239,68,68,0.5)];
+  }
+}
+
+/* Scrollbar özelleştirmesi */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-gray-500 transition-colors;
+}
