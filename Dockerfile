@@ -12,8 +12,8 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# .env dosyasını build anında kullanabilmek için kopyala (Gerekirse)
-# COPY .env .env 
+# public/ klasörü yoksa oluştur (COPY hatasını önler)
+RUN mkdir -p /app/public
 RUN npm run build
 
 # 4. Production server
@@ -25,12 +25,14 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# public/ klasörünü kopyala
 COPY --from=builder /app/public ./public
-# Set the correct permission for prerender cache
+
+# Prerender cache için izin ayarla
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
+# Standalone output'u kullan (küçük imaj boyutu)
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

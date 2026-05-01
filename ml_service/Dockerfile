@@ -15,9 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Konteyner ayağa kalkarken modeli eğit (Eğer model dosyası yoksa garantiye almak için)
-RUN python train.py
+RUN python scripts/train.py
 
 EXPOSE 8000
 
 # API'yi başlat
-CMD ["python", "api.py"]
+CMD ["python", "-m", "app.main"]

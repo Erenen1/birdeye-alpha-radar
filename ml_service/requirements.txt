@@ -5,3 +5,6 @@ scikit-learn
 joblib
 requests
 python-dotenv
+python-telegram-bot
+apscheduler
+httpx

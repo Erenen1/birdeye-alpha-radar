@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Birdeye Alpha Radar",
+  title: "Birdeye Sentinel",
   description: "Early Solana Token Discovery Radar - Spot opportunities before they go viral",
 };
 

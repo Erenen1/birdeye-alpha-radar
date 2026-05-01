@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+export const dynamic = 'force-dynamic';
 import { getNewListings } from "@/services/birdeye/client";
 
 export async function GET() {

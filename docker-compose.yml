@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ml_service:
     build:
@@ -10,9 +8,8 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-    # Eğer Telegram ayarlarını docker-compose üzerinden vermek istersen:
-    # env_file:
-    #   - .env
+    env_file:
+      - .env
     restart: unless-stopped
 
   frontend:

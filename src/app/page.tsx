@@ -1,9 +1,12 @@
 import { getTrendingTokens } from "@/services/birdeye/client";
 import RadarDashboard from "@/components/dashboard/RadarDashboard";
+import type { TrendingToken } from "@/types";
+
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   // İlk veri yüklemesi (Server Component içerisinde yapıldığı için çok hızlıdır ve SEO dostudur)
-  let initialTrending = [];
+  let initialTrending: TrendingToken[] = [];
   try {
     initialTrending = await getTrendingTokens();
   } catch (error) {
