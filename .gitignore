@@ -1,0 +1,4 @@
+node_modules
+.next
+.env
+rules.md
