@@ -29,10 +29,41 @@ This project extensively leverages the industry-leading **Birdeye API** to sourc
    - **Use Case:** Extracting aggregate PnL and trade volume of the top 3 whale wallets to calculate Smart Money accumulation.
 
 ## 🏗️ Architecture
-The project employs a robust microservice architecture:
-- **Frontend / API Gateway:** Next.js framework for future UI dashboards and client-side routing.
-- **ML & Bot Microservice:** A scalable Python application utilizing `python-telegram-bot` and `apscheduler`.
-- **Containerization:** Fully containerized using `Docker` & `docker-compose` to ensure environment consistency and seamless production deployment.
+The project employs a robust microservice architecture with two primary data flows: an **Autonomous Quant Agent** loop and an interactive **Web Dashboard** loop.
+
+```mermaid
+flowchart TB
+    subgraph External["External APIs"]
+        BAPI(((🦅 Birdeye API)))
+        TG(((📱 Telegram API)))
+    end
+
+    subgraph Backend["🧠 Python ML Microservice"]
+        Cron["⏱️ APScheduler (3 Min Polling)"]
+        Engine["⚙️ ML Scoring Engine (TokenPredictor)"]
+        FastAPI["🚀 FastAPI Server"]
+    end
+
+    subgraph Frontend["💻 Next.js Web App"]
+        NextRoutes["🌐 Next.js API Routes"]
+        Dashboard["📊 UI Dashboard"]
+    end
+
+    %% Autonomous Flow (Bot)
+    BAPI -- "Fetches new_listing & top_traders" --> Cron
+    Cron -- "Raw Token Data" --> Engine
+    Engine -- "Generates Quant Thesis & Scores" --> TG
+
+    %% Web Application Flow
+    BAPI -. "Live Token Data" .-> FastAPI
+    Engine -. "Provides Analytics" .-> FastAPI
+    FastAPI -- "Serves API (REST)" --> NextRoutes
+    NextRoutes -- "Renders Frontend" --> Dashboard
+```
+
+- **ML & Bot Microservice:** A scalable Python backend that autonomously pulls from Birdeye, scores tokens using Machine Learning, and pushes actionable alerts to Telegram. It also serves a FastAPI layer for the web interface.
+- **Frontend / API Gateway:** A Next.js 14 application providing an interactive dashboard for users to visually review the AI's real-time findings.
+- **Containerization:** Fully containerized using `Docker` & `docker-compose` to ensure environment consistency and seamless production deployment (e.g. via Dokploy).
 
 ## 🚀 Getting Started
 
