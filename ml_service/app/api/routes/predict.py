@@ -26,9 +26,12 @@ def get_telegram_service() -> TelegramAlertService:
     return TelegramAlertService()
 
 
+import asyncio
+from app.services.bot import fetch_token_security, analyze_top_traders
+
 # ── Route ──────────────────────────────────────────────────────────────────
 @router.post("/predict")
-def predict_tokens(
+async def predict_tokens(
     req: PredictRequest,
     predictor: TokenPredictor = Depends(get_predictor),
     notifier: TelegramAlertService = Depends(get_telegram_service)
@@ -39,24 +42,30 @@ def predict_tokens(
 
     results = []
 
-    for token in req.tokens:
-        try:
-            # 1. Predict
-            result = predictor.predict(token)
+    # Enrichment step for higher quality dashboard signals
+    async def enrich_and_predict(token):
+        if token.smartMoneyBuyRatio == 0.5 or token.securityScore == 50.0:
+            # Only fetch if we're at defaults to save API credits/time
+            sec_task = fetch_token_security(token.address)
+            whale_task = analyze_top_traders(token.address)
+            security_score, (buy_ratio, _) = await asyncio.gather(sec_task, whale_task)
+            token.securityScore = security_score
+            token.smartMoneyBuyRatio = buy_ratio
+        
+        return predictor.predict(token)
+
+    tasks = [enrich_and_predict(t) for t in req.tokens]
+    batch_results = await asyncio.gather(*tasks)
+
+    for i, result in enumerate(batch_results):
+        token = req.tokens[i]
+        # 2. Alert logic
+        if result.verdict == "GEM" and result.confidence >= alert_thresholds.gem_min_confidence:
+            notifier.send_alert(token, "GEM", result.confidence)
+        elif result.verdict == "RUG" and result.confidence >= alert_thresholds.rug_min_confidence:
+            notifier.send_alert(token, "RUG", result.confidence)
             
-            # 2. Alert logic
-            if result.verdict == "GEM" and result.confidence >= alert_thresholds.gem_min_confidence:
-                notifier.send_alert(token, "GEM", result.confidence)
-            elif result.verdict == "RUG" and result.confidence >= alert_thresholds.rug_min_confidence:
-                notifier.send_alert(token, "RUG", result.confidence)
-                
-            results.append(result.model_dump())
-            
-        except ModelNotLoadedError as e:
-            raise HTTPException(
-                status_code=503,
-                detail="Model not loaded. Please run: python ml_service/train.py"
-            ) from e
+        results.append(result.model_dump())
 
     return {
         "success": True, 

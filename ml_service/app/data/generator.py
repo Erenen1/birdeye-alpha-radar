@@ -17,46 +17,51 @@ class SyntheticDataGenerator:
 
     def generate(self, n_samples: int = model_config.n_samples) -> pd.DataFrame:
         """
-        Creates a dataset with 'liquidity', 'volume', 'price_change', 
-        'vol_liq_ratio' features, and a 'target' label.
+        Generates advanced institutional-grade features.
         
-        Targets:
-            0: Neutral
-            1: GEM
-            2: RUG RISK
+        New Features:
+            - smart_money_buy_ratio: Proportion of volume from top wallets (Whales)
+            - security_score: Derived from mint auth, freeze auth, and liquidity lock
         """
         np.random.seed(self.seed)
 
-        # 1. Generate core features
+        # 1. Core features
         liquidity    = np.random.uniform(1000, 1_000_000, n_samples)
         volume       = np.random.uniform(100, 5_000_000, n_samples)
         price_change = np.random.uniform(-90, 500, n_samples)
         vol_liq_ratio = volume / liquidity
 
+        # 2. Institutional features
+        smart_money_buy_ratio = np.random.uniform(0, 1, n_samples)
+        security_score        = np.random.uniform(0, 100, n_samples)
+
         df = pd.DataFrame({
-            'liquidity':     liquidity,
-            'volume':        volume,
-            'price_change':  price_change,
-            'vol_liq_ratio': vol_liq_ratio
+            'liquidity':             liquidity,
+            'volume':                volume,
+            'price_change':          price_change,
+            'vol_liq_ratio':         vol_liq_ratio,
+            'smart_money_buy_ratio': smart_money_buy_ratio,
+            'security_score':        security_score
         })
 
-        # 2. Rule-based labeling strategy
+        # 3. Enhanced labeling strategy (Alpha Detection)
         labels = np.zeros(n_samples)
-        
-        # We iterate here to match legacy logic, though a vectorized approach 
-        # (np.where) would be faster for large datasets.
         for i in range(n_samples):
-            liq   = df.iloc[i]['liquidity']
-            # vol   = df.iloc[i]['volume']
-            chg   = df.iloc[i]['price_change']
-            ratio = df.iloc[i]['vol_liq_ratio']
+            row = df.iloc[i]
             
-            if liq < 50_000 and ratio > 5:
-                labels[i] = 2  # RUG RISK
-            elif chg > 20 and liq > 100_000 and 0.5 < ratio < 3:
-                labels[i] = 1  # GEM
-            elif chg < -50:
-                labels[i] = 2  # RUG RISK
+            # RUG CONDITIONS (High risk, low security)
+            if row['security_score'] < 30 or (row['vol_liq_ratio'] > 10 and row['liquidity'] < 20000):
+                labels[i] = 2  
+            
+            # GEM CONDITIONS (High smart money, good security, healthy growth)
+            elif (row['smart_money_buy_ratio'] > 0.7 and 
+                  row['security_score'] > 70 and 
+                  row['price_change'] > 10):
+                labels[i] = 1  
+                
+            # NEUTRAL / LOW CONVICTION
+            else:
+                labels[i] = 0
 
         df['target'] = labels
         return df

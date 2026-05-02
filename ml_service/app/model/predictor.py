@@ -28,10 +28,12 @@ class TokenPredictor:
         ratio = vol / liq
 
         features_df = pd.DataFrame([{
-            'liquidity':     liq,
-            'volume':        vol,
-            'price_change':  chg,
-            'vol_liq_ratio': ratio
+            'liquidity':             liq,
+            'volume':                vol,
+            'price_change':          chg,
+            'vol_liq_ratio':         ratio,
+            'smart_money_buy_ratio': token.smartMoneyBuyRatio or 0.5,
+            'security_score':        token.securityScore or 50.0
         }])
 
         # 2. Inference

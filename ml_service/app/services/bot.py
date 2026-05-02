@@ -63,10 +63,31 @@ async def fetch_token_overview(address: str):
         print(f"Error fetching token overview: {e}")
     return None
 
-async def analyze_top_traders(address: str) -> str:
+async def fetch_token_security(address: str) -> float:
     if not BIRDEYE_API_KEY:
-        return ""
-    url = f"https://public-api.birdeye.so/defi/v2/tokens/top_traders?address={address}&time_frame=24h&sort_type=desc&sort_by=volume&offset=0&limit=3"
+        return 50.0
+    url = f"https://public-api.birdeye.so/defi/token_security?address={address}"
+    headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json().get("data", {})
+                # Simple logic: start with 100 and subtract for risks
+                score = 100.0
+                if not data.get("is_mintable") is False: score -= 30
+                if data.get("is_proxy"): score -= 20
+                if not data.get("is_mutable") is False: score -= 10
+                return max(0, score)
+    except Exception as e:
+        print(f"Error fetching security: {e}")
+    return 50.0
+
+async def analyze_top_traders(address: str):
+    """Returns (buy_ratio, analysis_text)"""
+    if not BIRDEYE_API_KEY:
+        return 0.5, ""
+    url = f"https://public-api.birdeye.so/defi/v2/tokens/top_traders?address={address}&time_frame=24h&sort_type=desc&sort_by=volume&offset=0&limit=5"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
     try:
         async with httpx.AsyncClient() as client:
@@ -74,19 +95,24 @@ async def analyze_top_traders(address: str) -> str:
             if resp.status_code == 200:
                 items = resp.json().get("data", {}).get("items", [])
                 if not items:
-                    return ""
+                    return 0.5, ""
                 
                 total_pnl = sum(item.get("totalPnl") or 0 for item in items)
                 total_vol = sum(item.get("volumeUsd") or 0 for item in items)
                 
+                # Buy ratio logic: if PnL is positive, we assume smarter accumulation
+                buy_ratio = 0.8 if total_pnl > 0 else 0.3
+                
                 if total_vol > 5000:
                     if total_pnl > 0:
-                        return f"\n\n🐋 *SMART MONEY CONFLUENCE:*\nTop 3 whale wallets have accumulated `${total_vol:,.0f}` volume with an aggregate PnL of `+${total_pnl:,.0f}`. Strong institutional backing detected."
+                        text = f"\n\n🐋 *SMART MONEY CONFLUENCE:*\nTop 5 whale wallets have accumulated `${total_vol:,.0f}` volume with an aggregate PnL of `+${total_pnl:,.0f}`. Strong institutional backing detected."
+                        return 0.85, text
                     else:
-                        return f"\n\n⚠️ *SMART MONEY DISTRIBUTION:*\nTop traders are currently distributing or underwater (Aggregate PnL: `${total_pnl:,.0f}`). Monitor for potential dump."
+                        text = f"\n\n⚠️ *SMART MONEY DISTRIBUTION:*\nTop traders are currently distributing or underwater (Aggregate PnL: `${total_pnl:,.0f}`). Monitor for potential dump."
+                        return 0.2, text
     except Exception as e:
         print(f"Error fetching top traders: {e}")
-    return ""
+    return 0.5, ""
 
 def create_ascii_bar(score: int, length: int = 10, is_risk: bool = False) -> str:
     filled = int((score / 100) * length)
@@ -129,8 +155,15 @@ async def background_scan(app: Application):
         
         scored_tokens = []
         for t in tokens:
+            # Enriched data for ML
+            security_score = await fetch_token_security(t.address)
+            buy_ratio, analysis_text = await analyze_top_traders(t.address)
+            
+            t.securityScore = security_score
+            t.smartMoneyBuyRatio = buy_ratio
+            
             res = predictor.predict(t)
-            scored_tokens.append((t, res.alphaScore, res.riskScore))
+            scored_tokens.append((t, res.alphaScore, res.riskScore, analysis_text))
             
         if not scored_tokens:
             return
@@ -138,15 +171,13 @@ async def background_scan(app: Application):
         # Sort by highest alpha, then lowest risk
         scored_tokens.sort(key=lambda x: (x[1], -x[2]), reverse=True)
         
-        best_token, alpha, risk = scored_tokens[0]
+        best_token, alpha, risk, smart_money_analysis = scored_tokens[0]
         
         # Broadcast the highest alpha token from this 3-minute window
-        if alpha >= 40: # Lowered threshold to ensure activity for the demo
+        if alpha >= 40: 
             alpha_bar = create_ascii_bar(alpha)
             risk_bar = create_ascii_bar(risk, is_risk=True)
             thesis = get_quant_thesis(best_token, alpha, risk)
-            
-            smart_money_analysis = await analyze_top_traders(best_token.address)
             
             msg = f"⚡ *AUTO QUANT ALERT: {best_token.symbol}*\n"
             msg += f"`{best_token.address}`\n\n"

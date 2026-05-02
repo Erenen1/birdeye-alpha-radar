@@ -18,6 +18,8 @@ class TokenData(BaseModel):
     liquidity:             Optional[float] = Field(default=0.0)
     volume24hUSD:          Optional[float] = Field(default=0.0)
     price24hChangePercent: Optional[float] = Field(default=0.0)
+    smartMoneyBuyRatio:    Optional[float] = Field(default=0.5)
+    securityScore:         Optional[float] = Field(default=50.0)
 
 
 class PredictRequest(BaseModel):
