@@ -49,7 +49,7 @@ class AlertThresholds:
 @dataclass(frozen=True)
 class ServerConfig:
     """Uvicorn binding settings."""
-    host:   str  = "127.0.0.1"
+    host:   str  = "0.0.0.0"
     port:   int  = 8000
     reload: bool = False
 
