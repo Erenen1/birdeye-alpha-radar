@@ -1,0 +1,30 @@
+services:
+  ml_service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    container_name: birdeye_ml_service
+    # Port dışarıya açılmıyor, sadece iç ağda açık (Dokploy Traefik/Nginx kullanabilir)
+    expose:
+      - "8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: birdeye_frontend
+    # Port dışarıya açılmıyor, sunucu çakışması (port already allocated) engellendi
+    expose:
+      - "3000"
+    environment:
+      - ML_SERVICE_URL=http://ml_service:8000
+    env_file:
+      - .env
+    depends_on:
+      - ml_service
+    restart: unless-stopped
