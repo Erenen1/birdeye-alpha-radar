@@ -48,9 +48,12 @@ async def predict_tokens(
             # Only fetch if we're at defaults to save API credits/time
             sec_task = fetch_token_security(token.address)
             whale_task = analyze_top_traders(token.address)
-            security_score, (buy_ratio, _) = await asyncio.gather(sec_task, whale_task)
+            security_score, (buy_ratio, sybil_score, whale_quality, _) = await asyncio.gather(sec_task, whale_task)
+            
             token.securityScore = security_score
             token.smartMoneyBuyRatio = buy_ratio
+            token.sybilScore = sybil_score
+            token.whaleQualityIndex = whale_quality
         
         return predictor.predict(token)
 

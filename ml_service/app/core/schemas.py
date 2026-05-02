@@ -20,6 +20,8 @@ class TokenData(BaseModel):
     price24hChangePercent: Optional[float] = Field(default=0.0)
     smartMoneyBuyRatio:    Optional[float] = Field(default=0.5)
     securityScore:         Optional[float] = Field(default=50.0)
+    sybilScore:            Optional[float] = Field(default=0.0) # 0-100 (Higher is more suspicious)
+    whaleQualityIndex:     Optional[float] = Field(default=0.0) # 0-100 (Higher is smarter money)
 
 
 class PredictRequest(BaseModel):

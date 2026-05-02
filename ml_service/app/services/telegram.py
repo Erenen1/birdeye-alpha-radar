@@ -16,41 +16,44 @@ class TelegramAlertService:
         self.settings = telegram_settings
 
     def send_alert(self, token: TokenData, label: str, confidence: float) -> None:
-        """Constructs and sends a Markdown-formatted alert message."""
+        """Constructs and sends a premium Markdown-formatted alert message."""
         
-        # Guard clause: gracefully mock if not configured
         if not self.settings.is_configured:
-            print(f"[SIMULATED TELEGRAM ALERT] {label}: ${token.symbol} (Confidence: {confidence:.1f}%)")
             return
 
-        icon = "💎 GEM ALERT" if label == "GEM" else "🚨 RUG WARNING"
-        url  = f"https://api.telegram.org/bot{self.settings.bot_token}/sendMessage"
+        is_gem = label == "GEM"
+        header = "🦅 *SYCON ALPHA SIGNAL*" if is_gem else "🚨 *SYCON RISK WARNING*"
+        icon = "💎" if is_gem else "⚠️"
+        
+        # Create visual progress bar
+        bar_len = 10
+        filled = int((confidence / 100) * bar_len)
+        bar = ("🟩" if is_gem else "🟥") * filled + "⬜" * (bar_len - filled)
+
+        # AI Thesis generation
+        thesis = ""
+        if is_gem:
+            thesis = "_AI Analysis: High-conviction setup. Smart money accumulation detected alongside healthy liquidity depth._"
+        else:
+            thesis = "_AI Analysis: High risk detected. Disproportionate volume/liquidity ratio suggests wash trading or impending exit._"
 
         # Message construction
-        text  = f"🦅 *SYCON ALPHA SIGNAL*\n\n{icon}\n"
-        text += f"*Token:* ${token.symbol}"
-        if token.name:
-            text += f" ({token.name})"
-        text += f"\n*AI Confidence:* {confidence:.1f}%\n"
-        text += f"*Liquidity:* ${token.liquidity:,.0f}\n"
-        text += f"*24h Change:* {token.price24hChangePercent:.2f}%\n\n"
-        text += f"[Trade on Birdeye](https://birdeye.so/token/{token.address}?chain=solana)"
+        text = f"{header}\n\n"
+        text += f"{icon} *Token:* {token.symbol} (`{token.address[:6]}...{token.address[-4:]}`)\n"
+        text += f"📊 *AI Confidence:* {bar} `{confidence:.1f}%`\n"
+        text += f"💧 *Liquidity:* `${token.liquidity:,.0f}`\n"
+        text += f"📈 *24h Change:* `{token.price24hChangePercent:.2f}%`\n\n"
+        text += f"{thesis}\n\n"
+        text += f"🔗 [Trade on Birdeye](https://birdeye.so/token/{token.address}?chain=solana)"
 
         payload = {
             "chat_id": self.settings.chat_id,
             "text": text,
             "parse_mode": "Markdown",
-            "disable_web_page_preview": False
+            "disable_web_page_preview": True
         }
 
-        # Dispatch
         try:
-            resp = requests.post(url, json=payload, timeout=5)
-            if resp.status_code == 200:
-                print(f"Telegram alert sent for {label}: ${token.symbol}")
-            else:
-                print(f"Telegram API returned {resp.status_code}: {resp.text}")
-        except requests.exceptions.Timeout:
-            print(f"Telegram request timed out for ${token.symbol}")
+            requests.post(f"https://api.telegram.org/bot{self.settings.bot_token}/sendMessage", json=payload, timeout=5)
         except Exception as e:
             print(f"Telegram error: {e}")

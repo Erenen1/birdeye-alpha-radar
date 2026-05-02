@@ -84,35 +84,65 @@ async def fetch_token_security(address: str) -> float:
     return 50.0
 
 async def analyze_top_traders(address: str):
-    """Returns (buy_ratio, analysis_text)"""
+    """
+    Performs Institutional-grade trader analysis.
+    Detects Sybil clusters and evaluates Whale quality.
+    Returns: (buy_ratio, sybil_score, whale_quality, text)
+    """
     if not BIRDEYE_API_KEY:
-        return 0.5, ""
-    url = f"https://public-api.birdeye.so/defi/v2/tokens/top_traders?address={address}&time_frame=24h&sort_type=desc&sort_by=volume&offset=0&limit=5"
+        return 0.5, 0, 0, ""
+    
+    url = f"https://public-api.birdeye.so/defi/v2/tokens/top_traders?address={address}&time_frame=24h&sort_type=desc&sort_by=volume&offset=0&limit=10"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
+    
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
                 items = resp.json().get("data", {}).get("items", [])
                 if not items:
-                    return 0.5, ""
+                    return 0.5, 0, 0, ""
                 
-                total_pnl = sum(item.get("totalPnl") or 0 for item in items)
-                total_vol = sum(item.get("volumeUsd") or 0 for item in items)
+                # 1. Sybil Cluster Detection
+                # We look for identical trade volumes or PnLs which indicate bot-controlled clusters
+                volumes = [round(item.get("volumeUsd") or 0, 2) for item in items]
+                pnls = [round(item.get("totalPnl") or 0, 2) for item in items]
                 
-                # Buy ratio logic: if PnL is positive, we assume smarter accumulation
-                buy_ratio = 0.8 if total_pnl > 0 else 0.3
+                unique_vols = len(set(volumes))
+                unique_pnls = len(set(pnls))
                 
-                if total_vol > 5000:
-                    if total_pnl > 0:
-                        text = f"\n\n🐋 *SMART MONEY CONFLUENCE:*\nTop 5 whale wallets have accumulated `${total_vol:,.0f}` volume with an aggregate PnL of `+${total_pnl:,.0f}`. Strong institutional backing detected."
-                        return 0.85, text
-                    else:
-                        text = f"\n\n⚠️ *SMART MONEY DISTRIBUTION:*\nTop traders are currently distributing or underwater (Aggregate PnL: `${total_pnl:,.0f}`). Monitor for potential dump."
-                        return 0.2, text
+                # If many traders have the EXACT same volume/PnL, it's a Sybil attack
+                sybil_score = 0
+                if len(items) > 3:
+                    sybil_score = (1 - (unique_vols / len(items))) * 100
+                
+                # 2. Whale Quality Index
+                # Aggregate PnL of top traders vs their volume
+                total_pnl = sum(pnls)
+                total_vol = sum(volumes)
+                
+                # Quality index: Higher if whales are consistently profitable (Smart Money)
+                whale_quality = 0
+                if total_vol > 0:
+                    whale_quality = min(100, max(0, (total_pnl / (total_vol * 0.1)) * 50 + 50))
+                
+                buy_ratio = 0.8 if total_pnl > 0 else 0.2
+                
+                # 3. Descriptive Text
+                text = ""
+                if sybil_score > 40:
+                    text += f"\n\n🚨 *SYBIL CLUSTER DETECTED:*\n{sybil_score:.0f}% of top traders show identical trading patterns. Highly likely to be a single entity (Bot Farm)."
+                
+                if whale_quality > 70:
+                    text += f"\n\n🐋 *SMART MONEY CONFLUENCE:*\nTop traders have a high quality index ({whale_quality:.0f}/100). Institutional 'Alpha' wallets detected."
+                elif total_vol > 10000:
+                    text += f"\n\n⚠️ *WHALE ACTIVITY:*\nVolume: `${total_vol:,.0f}` | PnL: `${total_pnl:,.0f}`. Monitoring for breakout."
+
+                return buy_ratio, sybil_score, whale_quality, text
     except Exception as e:
-        print(f"Error fetching top traders: {e}")
-    return 0.5, ""
+        print(f"Error in trader analysis: {e}")
+    
+    return 0.5, 0, 0, ""
 
 def create_ascii_bar(score: int, length: int = 10, is_risk: bool = False) -> str:
     filled = int((score / 100) * length)
@@ -157,10 +187,12 @@ async def background_scan(app: Application):
         for t in tokens:
             # Enriched data for ML
             security_score = await fetch_token_security(t.address)
-            buy_ratio, analysis_text = await analyze_top_traders(t.address)
+            buy_ratio, sybil_score, whale_quality, analysis_text = await analyze_top_traders(t.address)
             
             t.securityScore = security_score
             t.smartMoneyBuyRatio = buy_ratio
+            t.sybilScore = sybil_score
+            t.whaleQualityIndex = whale_quality
             
             res = predictor.predict(t)
             scored_tokens.append((t, res.alphaScore, res.riskScore, analysis_text))

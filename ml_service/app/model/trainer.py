@@ -9,6 +9,8 @@ from sklearn.ensemble import RandomForestClassifier
 from app.core.config import model_config
 
 
+from app.model.features import FeatureEngineer
+
 class ModelTrainer:
     """Handles the training of the token classification model."""
 
@@ -22,8 +24,9 @@ class ModelTrainer:
     def fit(self, df: pd.DataFrame) -> RandomForestClassifier:
         """Fits the internal classifier using the provided DataFrame."""
         # 1. Extract features and target
-        feature_cols = ['liquidity', 'volume', 'price_change', 'vol_liq_ratio']
-        X = df[feature_cols]
+        # We drop 'target' but we must ensure the column order matches 
+        # what FeatureEngineer produces for the predictor.
+        X = df.drop(columns=['target'])
         y = df['target']
 
         # 2. Train

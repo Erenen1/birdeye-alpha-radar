@@ -10,31 +10,21 @@ from app.core.schemas import TokenData, PredictionResult
 from app.core.exceptions import ModelNotLoadedError
 
 
+from app.model.features import FeatureEngineer
+
 class TokenPredictor:
-    """Uses a scikit-learn model to generate predictions for tokens."""
+    """Uses a scikit-learn model with advanced feature engineering."""
 
     def __init__(self, model: RandomForestClassifier | None):
         self.model = model
 
     def predict(self, token: TokenData) -> PredictionResult:
-        """Evaluates a single token and returns a standardized result."""
+        """Evaluates a single token using high-order engineered features."""
         if not self.model:
             raise ModelNotLoadedError("Model is not loaded.")
 
-        # 1. Feature normalization
-        liq   = max(token.liquidity or 1.0, 1.0)  # Avoid div/0
-        vol   = token.volume24hUSD or 0.0
-        chg   = token.price24hChangePercent or 0.0
-        ratio = vol / liq
-
-        features_df = pd.DataFrame([{
-            'liquidity':             liq,
-            'volume':                vol,
-            'price_change':          chg,
-            'vol_liq_ratio':         ratio,
-            'smart_money_buy_ratio': token.smartMoneyBuyRatio or 0.5,
-            'security_score':        token.securityScore or 50.0
-        }])
+        # 1. High-order feature engineering
+        features_df = FeatureEngineer.engineer(token)
 
         # 2. Inference
         pred  = self.model.predict(features_df)[0]
