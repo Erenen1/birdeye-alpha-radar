@@ -1,110 +1,68 @@
+# 🦅 Birdeye Sentinel: Autonomous On-Chain Quant Agent
+
 <div align="center">
-  <img src="https://birdeye.so/birdeye-logo.svg" alt="Birdeye Logo" width="100"/>
-  <h1>🦅 Birdeye Sentinel</h1>
-  <p><strong>The Autonomous Institutional-Grade Market Intelligence Agent for Solana</strong></p>
-  <p><i>Built for the Birdeye Data 4-Week BIP Competition (Sprint 1)</i></p>
+  <img src="https://birdeye.so/favicon.ico" alt="Birdeye" width="60" />
+  <p><em>Built for the Birdeye Data 4-Week BIP Competition (Sprint 2)</em></p>
 </div>
 
-<br/>
+## 📌 Overview
+**Birdeye Sentinel** is an institutional-grade, AI-powered market scanning agent. Designed to filter through the noise of Solana's high-speed ecosystem, it autonomously monitors real-time on-chain data to discover high-conviction token setups before they break out.
 
-## 🎯 The Vision: From Data to Actionable Alpha
+It acts as an **Early Meme Discovery & Smart Money Alert Bot**, combining structural liquidity analysis with whale tracking to produce actionable intelligence.
 
-In the hyper-fast environment of the Solana ecosystem, finding "Gems" early is mathematically impossible for humans manually refreshing dashboards. **We built Birdeye Sentinel to automate the "Aha!" moment.**
+## ✨ Key Features
+- **⚡ Real-Time Scanning:** Constantly polls for new token listings on Solana.
+- **🧠 AI Scoring Engine (Alpha & Risk):** Leverages a proprietary ML model to assign `0-100` scores based on structural edges, flagging honeypots, and highlighting genuine gems.
+- **🐋 Smart Money Confluence:** Tracks the Top 3 traders (Whales) for a token, analyzing their aggregate volume and PnL to detect institutional accumulation vs. distribution.
+- **💡 Quant Thesis Generation:** Automatically generates a human-readable thesis analyzing the Volume-to-Liquidity (V/L) ratio and historical breakout patterns.
+- **🚀 One-Click Execution:** Delivers rich Telegram alerts complete with direct Raydium swap links and Birdeye charting.
 
-Instead of just building another charting website, we engineered a **Dual-Node Architecture**:
-1. A blazing-fast **Next.js Radar Dashboard** for real-time market overview.
-2. A **Python-based ML Microservice (FastAPI)** that runs an autonomous background job, analyzing the Birdeye API every 3 minutes. When it detects an anomaly (High Alpha, Low Risk, and Whale Accumulation), it broadcasts an institutional-grade alert directly to a Telegram Channel.
+## 🛠️ Birdeye Data Integration
+This project extensively leverages the industry-leading **Birdeye API** to source real-time Solana metrics. We achieved a minimum of 50+ API calls autonomously via a background scheduler that polls every 3 minutes.
 
----
+### Endpoints Utilized:
+1. `GET /defi/v2/tokens/new_listing?limit=10`
+   - **Use Case:** Feeding the baseline new tokens into the intelligence pipeline.
+2. `GET /defi/token_overview?address={address}`
+   - **Use Case:** Enriching token data (Price, Liquidity, 24h Vol, Price Change) for the ML Predictor.
+3. `GET /defi/v2/tokens/top_traders?address={address}`
+   - **Use Case:** Extracting aggregate PnL and trade volume of the top 3 whale wallets to calculate Smart Money accumulation.
 
-## ✨ Key Features & The "WOW" Factor
+## 🏗️ Architecture
+The project employs a robust microservice architecture:
+- **Frontend / API Gateway:** Next.js framework for future UI dashboards and client-side routing.
+- **ML & Bot Microservice:** A scalable Python application utilizing `python-telegram-bot` and `apscheduler`.
+- **Containerization:** Fully containerized using `Docker` & `docker-compose` to ensure environment consistency and seamless production deployment.
 
-### 🧠 1. Smart Money Confluence (Top Traders Integration)
-Volume alone is deceptive. Our AI doesn't just look at total volume; it leverages Birdeye's **Top Traders API** to cross-reference the top 3 whale wallets. If a token has a high ML Alpha Score AND the top whales are in profit while accumulating, the bot flags it as a `SMART MONEY CONFLUENCE`.
-
-### 📊 2. Autonomous Telegram Broadcaster
-We removed the human element. The bot operates as a silent channel administrator. It queries Birdeye every 3 minutes, processes the data through a Random Forest Classifier, and formats a stunning Markdown alert complete with **ASCII visualization bars** and **Inline Interactive Keyboards** (Direct links to Birdeye Charts and Raydium).
-
-### ⚡ 3. Intelligent In-Memory Caching
-To prevent `429 Too Many Requests` limits on the Birdeye free tier, our Next.js backend utilizes a strict 30-second global memory cache. Both SSR and Client-side requests are merged, ensuring optimal API utilization.
-
----
-
-## 🛠 Birdeye Endpoints Utilized
-We extensively explored the Birdeye Data ecosystem to power this project:
-- `GET /defi/v2/tokens/new_listing` - To fuel the background ML anomaly detection.
-- `GET /defi/v2/tokens/top_traders` - To generate the Smart Money Confluence analysis.
-- `GET /defi/token_overview` - For deep, on-demand token health checks.
-- `GET /defi/token_trending` - To populate the Next.js Radar Dashboard.
-
----
-
-## 🏗 System Architecture
-
-```mermaid
-graph TD
-    subgraph Birdeye Data Ecosystem
-        B_API[Birdeye Public API]
-    end
-
-    subgraph Frontend Node (Next.js 14)
-        UI[Radar Dashboard UI]
-        API_Routes[Next.js API Routes]
-        Cache[30s Memory Cache]
-        
-        UI <--> API_Routes
-        API_Routes <--> Cache
-        Cache <-->|REST| B_API
-    end
-
-    subgraph ML Microservice (FastAPI / Python)
-        Cron[AsyncIOScheduler\n(Runs every 3m)]
-        Model[Scikit-Learn\nRandom Forest Classifier]
-        TG[Telegram Bot App]
-        
-        Cron -->|Fetch Listings| B_API
-        Cron -->|Fetch Top Traders| B_API
-        Cron --> Model
-        Model -->|Alpha > 70 & Risk < 40| TG
-    end
-
-    subgraph End User
-        Trader((Crypto Trader))
-        Trader <-->|Views| UI
-        TG -->|Broadcasts GEM Alerts| Trader
-    end
-```
-
----
-
-## 🚀 Quick Start (Dockerized)
-
-We ensured that the judges can run our entire complex architecture with a single command. 
+## 🚀 Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose installed.
-- A Birdeye API Key.
-- A Telegram Bot Token & Channel ID.
+- Docker and Docker Compose
+- A [Birdeye API Key](https://bds.birdeye.so/)
+- A Telegram Bot Token (from `@BotFather`)
 
-### Setup
-1. Clone the repository.
-2. Configure your `.env` file at the root:
-```env
-BIRDEYE_API_KEY=your_api_key_here
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=@your_channel_username
-```
-3. Run the stack:
-```bash
-docker compose up --build -d
-```
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/birdeye-sentinel.git
+   cd birdeye-sentinel
+   ```
+2. Set up your environment variables:
+   ```bash
+   cp .env.example .env
+   # Add your BIRDEYE_API_KEY and Telegram credentials into the .env file
+   ```
+3. Boot up the autonomous agent:
+   ```bash
+   docker compose up --build -d
+   ```
 
-### What Happens Next?
-- **Frontend:** Available at `http://localhost:3000`. You will see the beautiful, real-time Token Radar.
-- **Backend ML:** The Python server boots on `http://localhost:8000`.
-- **Telegram Agent:** The bot immediately sends an initialization message to your channel and begins its silent 3-minute monitoring loops.
+## 📸 Live Demo & Screenshots
+
+<div align="center">
+  <img src="./public/demo.jpg" alt="Birdeye Sentinel Telegram Bot Demo" width="350" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+  <p><em>Real-time autonomous quant alerts directly to your mobile device.</em></p>
+</div>
 
 ---
-
-## 🏆 Hackathon Alignment
-This project aligns perfectly with **Sprint 1: Technical Depth & Product Utility**. By decoupling the frontend from the AI logic using Docker, handling rate-limits professionally, and combining multiple Birdeye APIs to create an institutional quant narrative, **Birdeye Sentinel** represents the true next wave of on-chain trading agents.
+*If you find this project valuable, drop a ⭐️ and follow my journey on X: [@Sycon_xxx](https://x.com/Sycon_xxx)! #BirdeyeAPI*

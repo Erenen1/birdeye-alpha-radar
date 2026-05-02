@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Birdeye Sentinel",
   description: "Early Solana Token Discovery Radar - Spot opportunities before they go viral",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({

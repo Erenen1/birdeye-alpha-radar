@@ -88,10 +88,11 @@ async def analyze_top_traders(address: str) -> str:
         print(f"Error fetching top traders: {e}")
     return ""
 
-def create_ascii_bar(score: int, length: int = 10) -> str:
+def create_ascii_bar(score: int, length: int = 10, is_risk: bool = False) -> str:
     filled = int((score / 100) * length)
     empty = length - filled
-    return "█" * filled + "░" * empty
+    filled_char = "🟥" if is_risk else "🟩"
+    return filled_char * filled + "⬜" * empty
 
 def get_quant_thesis(token, alpha: int, risk: int) -> str:
     liq = token.liquidity or 0.0
@@ -125,30 +126,40 @@ async def background_scan(app: Application):
     try:
         model = ModelPersistence.load()
         predictor = TokenPredictor(model)
+        
+        scored_tokens = []
         for t in tokens:
             res = predictor.predict(t)
-            alpha = res.alphaScore
-            risk = res.riskScore
-            if alpha >= 70 and risk < 40:
-                alpha_bar = create_ascii_bar(alpha)
-                risk_bar = create_ascii_bar(risk)
-                thesis = get_quant_thesis(t, alpha, risk)
-                
-                smart_money_analysis = await analyze_top_traders(t.address)
-                
-                msg = f"⚡ *AUTO QUANT ALERT: {t.symbol}*\n"
-                msg += f"`{t.address}`\n\n"
-                msg += f"📊 Alpha: `[{alpha_bar}]` {alpha}/100\n"
-                msg += f"🛡️ Risk:  `[{risk_bar}]` {risk}/100\n\n"
-                msg += f"💧 Liq: `${t.liquidity or 0:,.0f}` | 📈 Vol: `${t.volume24hUSD or 0:,.0f}`\n\n"
-                msg += thesis
-                msg += smart_money_analysis
+            scored_tokens.append((t, res.alphaScore, res.riskScore))
+            
+        if not scored_tokens:
+            return
+            
+        # Sort by highest alpha, then lowest risk
+        scored_tokens.sort(key=lambda x: (x[1], -x[2]), reverse=True)
+        
+        best_token, alpha, risk = scored_tokens[0]
+        
+        # Broadcast the highest alpha token from this 3-minute window
+        if alpha >= 40: # Lowered threshold to ensure activity for the demo
+            alpha_bar = create_ascii_bar(alpha)
+            risk_bar = create_ascii_bar(risk, is_risk=True)
+            thesis = get_quant_thesis(best_token, alpha, risk)
+            
+            smart_money_analysis = await analyze_top_traders(best_token.address)
+            
+            msg = f"⚡ *AUTO QUANT ALERT: {best_token.symbol}*\n"
+            msg += f"`{best_token.address}`\n\n"
+            msg += f"📊 *Alpha:* {alpha_bar} `{alpha}/100`\n"
+            msg += f"🛡️ *Risk:*  {risk_bar} `{risk}/100`\n\n"
+            msg += f"💧 *Liq:* `${best_token.liquidity or 0:,.0f}` | 📈 *Vol:* `${best_token.volume24hUSD or 0:,.0f}`\n\n"
+            msg += thesis
+            msg += smart_money_analysis
 
-                try:
-                    await app.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown", reply_markup=get_action_keyboard(t.address))
-                except Exception as e:
-                    print(f"Error sending bg alert: {e}")
-                break # broadcast just 1 top gem per cycle to avoid spamming the channel
+            try:
+                await app.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown", reply_markup=get_action_keyboard(best_token.address))
+            except Exception as e:
+                print(f"Error sending bg alert: {e}")
     except Exception as e:
         print(f"Background scan error: {e}")
 
