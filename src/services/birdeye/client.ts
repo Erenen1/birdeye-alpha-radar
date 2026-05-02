@@ -56,7 +56,8 @@ export async function getTrendingTokens(): Promise<TrendingToken[]> {
     const response = await fetchBirdeye<BirdeyeResponse<{ tokens: TrendingToken[] }>>(
       "/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=20"
     );
-    return response.data?.tokens || [];
+    const tokens = response.data?.tokens || [];
+    return tokens.filter(t => !["SOL", "USDC", "USDT", "WSOL"].includes(t.symbol));
   } catch (e) {
     console.error("Trending fetch failed, falling back to Whale Watch proxy:", e);
     try {
