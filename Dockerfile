@@ -42,5 +42,7 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
+# Dokploy (Traefik/Nginx) üzerinden erişilebilmesi için 0.0.0.0 olmalı!
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
