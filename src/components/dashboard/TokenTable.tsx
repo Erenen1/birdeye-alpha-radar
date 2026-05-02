@@ -60,10 +60,11 @@ export function TokenTable({
   return (
     <div className="flex-1 glass-panel flex flex-col overflow-hidden">
       {/* Panel Header */}
-      <div className="p-4 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-medium">Live Token Discovery Radar</h2>
+      <div className="p-3 sm:p-4 border-b border-border flex flex-col gap-3">
+        {/* Title Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h2 className="text-base sm:text-lg font-medium">Live Token Radar</h2>
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 text-success text-[10px] border border-success/20 font-medium">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
@@ -71,35 +72,32 @@ export function TokenTable({
               </span>
               LIVE
             </span>
-            <button
-              onClick={onRefresh}
-              className={cn("p-1 rounded hover:bg-surface transition-colors", isLoading && "animate-spin")}
-              title="Refresh Data"
-            >
-              <Activity className="h-3 w-3 text-gray-400" />
-            </button>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Showing live token signals generated from Birdeye market data.</p>
+          <button
+            onClick={onRefresh}
+            className={cn("p-1.5 sm:p-2 rounded-lg border border-border bg-surface/50 hover:bg-surface transition-colors flex items-center gap-1.5", isLoading && "animate-spin")}
+            title="Refresh Data"
+          >
+            <Activity className="h-3.5 w-3.5 text-gray-400" />
+          </button>
         </div>
 
-        {/* Tab Filters */}
-        <div className="flex flex-col gap-3 mt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {TABS.map((tab) => (
-              <MetricCard
-                key={tab.value}
-                title={tab.label}
-                active={activeTab === tab.value}
-                onClick={() => onTabChange(tab.value)}
-                colorClass={tab.colorClass}
-              />
-            ))}
-          </div>
+        {/* Tab Filters — horizontally scrollable on mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          {TABS.map((tab) => (
+            <MetricCard
+              key={tab.value}
+              title={tab.label}
+              active={activeTab === tab.value}
+              onClick={() => onTabChange(tab.value)}
+              colorClass={tab.colorClass}
+            />
+          ))}
         </div>
 
         {/* Quick Filters */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Quick Filters:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Filters:</span>
           <QuickFilter
             label="Liq > $100k"
             active={minLiquidity === 100_000}
@@ -113,10 +111,11 @@ export function TokenTable({
         </div>
       </div>
 
-      {/* Scrollable Table Area */}
-      <div className="flex-1 overflow-auto p-4 relative">
-        {/* Table Header */}
-        <div className="min-w-[800px] grid grid-cols-10 gap-4 text-xs font-medium text-gray-400 pb-2 border-b border-border/50 sticky top-0 bg-surface z-10 p-2">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-auto p-3 sm:p-4 relative">
+
+        {/* Desktop Table Header — only visible on md+ */}
+        <div className="hidden md:grid grid-cols-10 gap-4 text-xs font-medium text-gray-400 pb-2 border-b border-border/50 sticky top-0 bg-surface z-10 p-2">
           <div className="col-span-2">Token</div>
           <div className="col-span-1">Source</div>
           {SORT_COLUMNS.map(({ label, key, colSpan }) => (
@@ -136,11 +135,31 @@ export function TokenTable({
           <div className="col-span-1 text-center">Actions</div>
         </div>
 
+        {/* Mobile Sort Note */}
+        <div className="md:hidden text-[10px] text-gray-500 mb-2 flex items-center justify-between">
+          <span>{tokens.length} token{tokens.length !== 1 ? "s" : ""} found</span>
+          <button onClick={() => onSort("alphaScore")} className="text-primary font-medium">
+            Sort by AI Score {sortConfig.key === "alphaScore" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+          </button>
+        </div>
+
         {/* Rows */}
-        <div className="mt-4 flex flex-col gap-2 min-w-[800px]">
+        <div className="mt-2 md:mt-4 flex flex-col gap-2">
           {isLoading ? (
-            <div className="flex items-center justify-center p-12 text-gray-400">
-              Loading data from Birdeye API...
+            // Loading skeleton
+            <div className="flex flex-col gap-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse rounded-lg border border-border bg-surface/40 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-surface" />
+                    <div className="flex flex-col gap-1.5 flex-1">
+                      <div className="h-3 bg-surface rounded w-1/3" />
+                      <div className="h-2.5 bg-surface rounded w-1/5" />
+                    </div>
+                    <div className="h-4 bg-surface rounded w-16" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : tokens.length > 0 ? (
             tokens.map((token, i) => (
@@ -155,8 +174,9 @@ export function TokenTable({
               </React.Fragment>
             ))
           ) : (
-            <div className="flex items-center justify-center p-12 text-gray-400">
-              No tokens found matching your filters.
+            <div className="flex flex-col items-center justify-center p-12 text-gray-400 gap-2">
+              <Activity className="h-8 w-8 opacity-30" />
+              <span className="text-sm">No tokens found matching your filters.</span>
             </div>
           )}
         </div>

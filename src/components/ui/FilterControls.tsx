@@ -14,7 +14,7 @@ export function MetricCard({ title, active, onClick, colorClass }: MetricCardPro
     <div
       onClick={onClick}
       className={cn(
-        "flex justify-center items-center px-4 py-2 rounded border transition-all cursor-pointer group min-h-[32px] text-center whitespace-nowrap",
+        "flex-shrink-0 flex justify-center items-center px-3 sm:px-4 py-2 rounded border transition-all cursor-pointer group min-h-[34px] text-center whitespace-nowrap select-none",
         active ? colorClass : "bg-surface/40 border-border hover:bg-surface text-gray-400"
       )}
     >

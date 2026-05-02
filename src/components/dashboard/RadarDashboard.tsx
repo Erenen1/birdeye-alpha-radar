@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Activity, Zap } from "lucide-react";
+import { Search, Bell, Activity, Zap, ChevronUp, ChevronDown } from "lucide-react";
+
+const XIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+  </svg>
+);
 
 import { cn } from "@/lib/utils";
 import { API_ROUTES, ALERT_THRESHOLDS, MOCK_SOL_PRICE, MOCK_SOL_CHANGE, MOCK_SOL_TPS } from "@/lib/constants";
@@ -48,6 +54,10 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
   const [loadingOverview, setLoadingOverview] = useState<Record<string, boolean>>({});
   const [liveSignals, setLiveSignals] = useState<LiveSignal[]>([]);
 
+  // Mobile state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSignalsPanelOpen, setIsSignalsPanelOpen] = useState(false);
+
   // ── Data Fetching ────────────────────────────────────────────────────────
 
   const fetchData = async () => {
@@ -79,13 +89,11 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
     }
   };
 
-  useEffect(() => { 
-    // Skip fetching on initial mount if we are on the Trending tab, 
-    // because page.tsx already provided the initial data via SSR.
+  useEffect(() => {
     if (activeTab === "Trending" && tokens.length > 0 && !isLoading && initialTrending.length > 0 && tokens[0]?.address === initialTrending[0]?.address) {
-      return; 
+      return;
     }
-    fetchData(); 
+    fetchData();
   }, [activeTab]);
 
   // ── Live Signals ─────────────────────────────────────────────────────────
@@ -195,15 +203,23 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
 
   return (
     <div className="min-h-screen flex flex-col">
+
       {/* ── Header ── */}
-      <header className="h-16 border-b border-border bg-surface flex items-center justify-between px-6 sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <Activity className="text-primary h-6 w-6" />
-          <span className="font-bold text-lg tracking-wide">BIRDEYE SENTINEL</span>
+      <header className="h-14 sm:h-16 border-b border-border bg-surface flex items-center justify-between px-3 sm:px-6 sticky top-0 z-50">
+
+        {/* Logo */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Activity className="text-primary h-5 w-5 sm:h-6 sm:w-6" />
+          <span className="font-bold text-base sm:text-lg tracking-wide">
+            <span className="hidden xs:inline">BIRDEYE</span>
+            <span className="xs:hidden">BE</span>
+            {" "}SENTINEL
+          </span>
         </div>
 
-        <div className="flex-1 max-w-xl mx-8">
-          <div className="relative">
+        {/* Search — desktop inline, mobile hidden by default */}
+        <div className="hidden md:flex flex-1 max-w-xl mx-8">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               id="token-search"
@@ -216,11 +232,15 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-surface/50 border border-border rounded-full px-3 py-1.5 text-xs text-gray-300">
+        {/* Right cluster */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* SOL TPS — md+ */}
+          <div className="hidden lg:flex items-center gap-2 bg-surface/50 border border-border rounded-full px-3 py-1.5 text-xs text-gray-300">
             <Zap className="h-3 w-3 text-warning fill-warning" />
             <span className="font-mono">{MOCK_SOL_TPS}</span>
           </div>
+
+          {/* SOL Price — sm+ */}
           <div className="hidden sm:flex items-center gap-2 bg-surface border border-border rounded-full px-3 py-1.5 text-xs font-medium">
             <div className="h-4 w-4 rounded-full bg-gradient-to-tr from-purple-500 to-success flex items-center justify-center text-[8px] text-black">
               SOL
@@ -228,36 +248,100 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
             <span>{MOCK_SOL_PRICE}</span>
             <span className="text-success text-[10px]">{MOCK_SOL_CHANGE}</span>
           </div>
+
+          {/* API Status — sm+ */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-success/20 bg-success/10 text-success text-[10px] font-medium">
             <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
             API Online
           </div>
-          <a href="https://t.me/sycon_alpha_radar" target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 border border-[#0088cc]/30 text-[#0088cc] transition-colors rounded-full px-4 py-1.5 text-xs font-medium cursor-pointer">
-            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.18-.08-.05-.19-.02-.27 0-.12.03-1.98 1.25-5.58 3.68-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.89.03-.24.36-.49 1-.76 3.91-1.7 6.52-2.8 7.82-3.34 3.73-1.55 4.5-1.82 5.01-1.83.11 0 .36.03.49.14.11.09.14.22.15.34-.01.12-.01.27-.03.41z"/></svg>
-            Join Telegram
+
+          {/* Mobile: search icon */}
+          <button
+            className="md:hidden p-2 rounded-lg border border-border bg-surface/50 hover:bg-surface transition-colors"
+            onClick={() => setIsSearchOpen((v) => !v)}
+            aria-label="Search"
+          >
+            {isSearchOpen ? <XIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+          </button>
+
+          {/* Telegram CTA */}
+          <a
+            href="https://t.me/sycon_alpha_radar"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 sm:gap-2 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 border border-[#0088cc]/30 text-[#0088cc] transition-colors rounded-full px-2.5 sm:px-4 py-1.5 text-xs font-medium cursor-pointer"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current flex-shrink-0">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.18-.08-.05-.19-.02-.27 0-.12.03-1.98 1.25-5.58 3.68-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.89.03-.24.36-.49 1-.76 3.91-1.7 6.52-2.8 7.82-3.34 3.73-1.55 4.5-1.82 5.01-1.83.11 0 .36.03.49.14.11.09.14.22.15.34-.01.12-.01.27-.03.41z"/>
+            </svg>
+            <span className="hidden sm:inline">Join Telegram</span>
           </a>
         </div>
       </header>
 
+      {/* Mobile Search Dropdown */}
+      {isSearchOpen && (
+        <div className="md:hidden sticky top-14 z-40 bg-surface border-b border-border px-3 py-2 shadow-lg animate-in slide-in-from-top-1 duration-150">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              id="token-search-mobile"
+              type="text"
+              placeholder="Search token, symbol, or address..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+              className="w-full bg-background border border-border rounded-full py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Main ── */}
-      <main className="flex-1 p-6 max-w-[1600px] mx-auto w-full flex flex-col gap-6">
-        {/* Title & Agent Trigger */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
+      <main className="flex-1 p-3 sm:p-6 max-w-[1600px] mx-auto w-full flex flex-col gap-4 sm:gap-6">
+
+        {/* Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-100">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-100">
               Birdeye Sentinel{" "}
-              <span className="text-primary text-sm font-medium ml-2 border border-primary/30 bg-primary/10 px-2 py-0.5 rounded-full">
+              <span className="text-primary text-xs sm:text-sm font-medium ml-1 border border-primary/30 bg-primary/10 px-2 py-0.5 rounded-full">
                 v2.0 ML Auto-Scan
               </span>
             </h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Real-time Solana token discovery. Birdeye Sentinel is continuously scanning in the background.
+            <p className="text-gray-400 text-xs sm:text-sm mt-1">
+              Real-time Solana token discovery powered by AI.
             </p>
+          </div>
+
+          {/* Mobile: Stats row */}
+          <div className="sm:hidden flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex items-center gap-1.5 bg-surface border border-border rounded-full px-2.5 py-1 text-xs font-medium flex-shrink-0">
+              <div className="h-3.5 w-3.5 rounded-full bg-gradient-to-tr from-purple-500 to-success flex items-center justify-center text-[7px] text-black">◎</div>
+              <span>{MOCK_SOL_PRICE}</span>
+              <span className="text-success text-[10px]">{MOCK_SOL_CHANGE}</span>
+            </div>
+            <div className="flex items-center gap-1 bg-surface/50 border border-border rounded-full px-2.5 py-1 text-xs text-gray-300 flex-shrink-0">
+              <Zap className="h-3 w-3 text-warning fill-warning" />
+              <span className="font-mono text-[11px]">{MOCK_SOL_TPS}</span>
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-success/20 bg-success/10 text-success text-[10px] font-medium flex-shrink-0">
+              <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+              Online
+            </div>
           </div>
         </div>
 
-        {/* Table + Sidebar */}
-        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
+        {/* Table + Sidebar — stacked on mobile, side-by-side on lg+ */}
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 flex-1 min-h-0">
           <TokenTable
             tokens={filteredTokens}
             isLoading={isLoading}
@@ -275,12 +359,52 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
             onVolumeFilter={setMinVolume}
             onRefresh={fetchData}
           />
-          <SignalsSidebar
-            signals={liveSignals}
-            onSignalClick={handleExpandToken}
-            onTabChange={setActiveTab}
-            activeTab={activeTab}
-          />
+
+          {/* Desktop Sidebar */}
+          <div className="hidden lg:block">
+            <SignalsSidebar
+              signals={liveSignals}
+              onSignalClick={handleExpandToken}
+              onTabChange={setActiveTab}
+              activeTab={activeTab}
+            />
+          </div>
+        </div>
+
+        {/* Mobile: Signals accordion (above bottom padding) */}
+        <div className="lg:hidden">
+          <button
+            onClick={() => setIsSignalsPanelOpen((v) => !v)}
+            className="w-full flex items-center justify-between p-3 glass-panel border-border rounded-xl"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Algorithmic Signals</span>
+              {liveSignals.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] border border-primary/30 font-bold">
+                  {liveSignals.length}
+                </span>
+              )}
+            </div>
+            {isSignalsPanelOpen
+              ? <ChevronUp className="h-4 w-4 text-gray-400" />
+              : <ChevronDown className="h-4 w-4 text-gray-400" />}
+          </button>
+
+          {isSignalsPanelOpen && (
+            <div className="mt-2 animate-in slide-in-from-top-2 duration-200">
+              <SignalsSidebar
+                signals={liveSignals}
+                onSignalClick={(addr) => {
+                  handleExpandToken(addr);
+                  setIsSignalsPanelOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onTabChange={setActiveTab}
+                activeTab={activeTab}
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>
