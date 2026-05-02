@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Activity, ExternalLink, Bell, Eye, ShieldCheck, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, ExternalLink, Bell, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LiveSignal } from "@/types";
 import { API_ROUTES } from "@/lib/constants";
@@ -11,21 +11,21 @@ interface SignalItemProps {
   onClick: () => void;
 }
 
-const iconColors = {
+const iconColors: Record<string, string> = {
   success: "text-success bg-success/10 border-success/20",
   danger: "text-danger bg-danger/10 border-danger/20",
   info: "text-info bg-info/10 border-info/20",
   warning: "text-warning bg-warning/10 border-warning/20",
 };
 
-const textColors = {
+const textColors: Record<string, string> = {
   success: "text-success",
   danger: "text-danger",
   warning: "text-warning",
   info: "text-info",
 };
 
-const glowColors = {
+const glowColors: Record<string, string> = {
   success: "shadow-[0_0_10px_rgba(16,185,129,0.15)]",
   danger: "shadow-[0_0_10px_rgba(239,68,68,0.15)]",
   info: "shadow-[0_0_10px_rgba(59,130,246,0.15)]",
@@ -33,25 +33,27 @@ const glowColors = {
 };
 
 export function SignalItem({ signal: sig, onClick }: SignalItemProps) {
+  const colorKey = sig.color || "info";
+
   return (
     <div
       onClick={onClick}
       className={cn(
         "flex gap-3 pb-4 border-b border-border/50 last:border-0 group cursor-pointer hover:bg-white/[0.03] p-2 -mx-2 rounded-lg transition-all duration-200",
-        glowColors[sig.color]
+        glowColors[colorKey]
       )}
     >
       <div
         className={cn(
           "mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center border transition-transform group-hover:scale-110",
-          iconColors[sig.color]
+          iconColors[colorKey]
         )}
       >
         <Activity className="h-3.5 w-3.5" />
       </div>
       <div className="flex flex-col gap-1 w-full min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className={cn("text-xs font-bold tracking-wide truncate", textColors[sig.color])}>
+          <span className={cn("text-xs font-bold tracking-wide truncate", textColors[colorKey])}>
             {sig.signal}
           </span>
           <ExternalLink className="h-3 w-3 text-gray-600 group-hover:text-white transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
@@ -84,13 +86,13 @@ function WhaleItem({ trade }: { trade: WhaleTrade }) {
           "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0",
           trade.type === "BUY" ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
         )}>
-          {trade.symbol[0]}
+          {trade.symbol?.[0] || "?"}
         </div>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1">
             <span className="text-xs font-medium text-gray-200 truncate">{trade.symbol}</span>
             {trade.isSmart && (
-              <ShieldCheck className="h-3 w-3 text-primary flex-shrink-0" title="Smart Wallet" />
+              <Activity className="h-3 w-3 text-primary flex-shrink-0" />
             )}
           </div>
           <span className="text-[9px] text-gray-500 font-mono truncate">{trade.address.slice(0, 4)}...{trade.address.slice(-4)}</span>
@@ -101,7 +103,11 @@ function WhaleItem({ trade }: { trade: WhaleTrade }) {
           "text-xs font-mono font-medium flex items-center justify-end gap-1",
           trade.type === "BUY" ? "text-success" : "text-danger"
         )}>
-          {trade.type === "BUY" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+          {trade.type === "BUY" ? (
+            <TrendingUp className="h-3 w-3" />
+          ) : (
+            <TrendingUp className="h-3 w-3 rotate-180" />
+          )}
           ${trade.amount > 1000 ? `${(trade.amount / 1000).toFixed(1)}k` : trade.amount.toFixed(0)}
         </div>
         <span className="text-[9px] text-gray-600 uppercase tracking-tighter">Just now</span>
@@ -125,7 +131,7 @@ export function SignalsSidebar({ signals, onSignalClick, onTabChange, activeTab 
       try {
         const res = await fetch(API_ROUTES.WHALE_WATCH);
         const json = await res.json();
-        if (json.success) setWhaleTrades(json.data);
+        if (json.success && json.data) setWhaleTrades(json.data);
       } catch (e) {
         console.error("Whale fetch error:", e);
       }
@@ -174,7 +180,7 @@ export function SignalsSidebar({ signals, onSignalClick, onTabChange, activeTab 
       <div className="glass-panel flex flex-col flex-1">
         <div className="p-4 border-b border-border flex justify-between items-center bg-white/[0.02]">
           <div className="flex items-center gap-2">
-            <Eye className="h-4 w-4 text-warning" />
+            <Activity className="h-4 w-4 text-warning" />
             <h2 className="text-sm sm:text-base font-medium">Live Whale Watch</h2>
           </div>
           <div className="flex items-center gap-1.5">
