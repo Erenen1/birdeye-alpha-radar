@@ -11,6 +11,7 @@ from app.core.exceptions import ModelNotLoadedError
 from app.model.persistence import ModelPersistence
 from app.model.predictor import TokenPredictor
 from app.services.telegram import TelegramAlertService
+import httpx
 
 router = APIRouter(tags=["Prediction"])
 
