@@ -19,7 +19,7 @@ It acts as an **Early Meme Discovery & Smart Money Alert Bot**, combining struct
 - **📱 Autonomous Whale Radar (Telegram):** A sophisticated bot that broadcasts high-conviction whale movements, including institutional accumulation alerts and Sybil warnings.
 
 ## 🚀 API Optimization & Redis Caching
-To ensure institutional-grade performance while staying within **Birdeye API credit limits (e.g. 30k/month)**, we implemented a sophisticated multi-layer caching system:
+To ensure institutional-grade performance while staying within **Birdeye API credit limits**, we implemented a sophisticated multi-layer caching system:
 
 - **⚡ Redis Shared Cache:** All high-frequency Birdeye requests (Security, Top Traders, Trending) are cached in a centralized **Redis** layer.
 - **📉 80% Credit Reduction:** By caching token metadata for 5 minutes and trading activity for 45-60 seconds, we've reduced redundant API calls by approximately **80%**.

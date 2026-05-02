@@ -315,7 +315,7 @@ async def send_startup_message(app: Application):
         try:
             msg = "🦅 *Birdeye Sentinel Channel Activated*\n\n"
             msg += "Autonomous institutional-grade market scanning is active.\n"
-            msg += "The AI will silently monitor on-chain metrics every 3 minutes and broadcast high-conviction GEM setups here."
+            msg += "The AI will silently monitor on-chain metrics every 10 minutes and broadcast high-conviction GEM setups here."
             await app.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
             await background_scan(app)
         except Exception as e:
@@ -329,7 +329,7 @@ def start_telegram_bot():
     app = Application.builder().token(telegram_settings.bot_token).build()
     
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(background_scan, 'interval', minutes=3, args=[app])
+    scheduler.add_job(background_scan, 'interval', minutes=10, args=[app])
     scheduler.start()
     
     return app
