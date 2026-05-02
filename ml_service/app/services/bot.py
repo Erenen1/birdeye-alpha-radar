@@ -329,7 +329,7 @@ def start_telegram_bot():
     app = Application.builder().token(telegram_settings.bot_token).build()
     
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(background_scan, 'interval', minutes=10, args=[app])
+    scheduler.add_job(background_scan, 'interval', minutes=30, args=[app])
     scheduler.start()
     
     return app
