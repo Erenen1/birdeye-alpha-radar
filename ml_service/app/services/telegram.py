@@ -22,7 +22,7 @@ class TelegramAlertService:
             return
 
         is_gem = label == "GEM"
-        header = "🦅 *SYCON ALPHA SIGNAL*" if is_gem else "🚨 *SYCON RISK WARNING*"
+        header = "🦅 *ALPHA SIGNAL*" if is_gem else "🚨 *RISK WARNING*"
         icon = "💎" if is_gem else "⚠️"
         
         # Create visual progress bar

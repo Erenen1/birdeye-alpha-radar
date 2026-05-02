@@ -16,6 +16,7 @@ export const API_ROUTES = {
   OVERVIEW: "/api/birdeye/overview",
   PREDICT: "/api/predict",
   TELEGRAM_ALERT: "/api/telegram/alert",
+  WHALE_WATCH: "/api/whale-watch",
 } as const;
 
 // ── ML / Alert Thresholds ──────────────────────────────────────────────────
