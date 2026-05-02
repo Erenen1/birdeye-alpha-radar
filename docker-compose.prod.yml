@@ -4,7 +4,6 @@ services:
       context: ./ml_service
       dockerfile: Dockerfile
     container_name: birdeye_ml_service
-    # Port dışarıya açılmıyor, sadece iç ağda açık (Dokploy Traefik/Nginx kullanabilir)
     expose:
       - "8000"
     environment:
@@ -18,7 +17,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: birdeye_frontend
-    # Port dışarıya açılmıyor, sunucu çakışması (port already allocated) engellendi
     expose:
       - "3000"
     environment:
