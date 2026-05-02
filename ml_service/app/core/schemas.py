@@ -15,6 +15,7 @@ class TokenData(BaseModel):
     address: str
     symbol:  str
     name:    str = ""
+    price:                 Optional[float] = Field(default=0.0)
     liquidity:             Optional[float] = Field(default=0.0)
     volume24hUSD:          Optional[float] = Field(default=0.0)
     price24hChangePercent: Optional[float] = Field(default=0.0)

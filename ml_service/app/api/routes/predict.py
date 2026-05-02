@@ -39,7 +39,7 @@ async def predict_tokens(
 ):
     """Processes a batch of tokens, predicting classifications and firing alerts."""
     if not req.tokens:
-        raise HTTPException(status_code=400, detail="No tokens provided.")
+        return {"success": True, "data": [], "count": 0}
 
     results = []
 
@@ -79,43 +79,93 @@ async def predict_tokens(
 
 @router.get("/whale-watch")
 async def get_whale_watch():
-    """Fetches real-time whale transactions across the Solana ecosystem."""
-    from app.services.bot import BIRDEYE_API_KEY
+    """Fetches high-volume tokens as 'whale' activity proxy."""
+    from app.services.bot import BIRDEYE_API_KEY, get_cached, set_cached
     if not BIRDEYE_API_KEY:
         return {"success": False, "error": "API Key missing"}
 
-    # We fetch big trades across the chain or for top trending tokens
-    # For the hackathon demo, we poll the global trade stream if possible, 
-    # or simulate based on trending tokens for better visual feedback.
-    # Use tokenlist (no underscore) sorted by volume to ensure we get active tokens with data
-    url = "https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=20"
+    cache_key = "whale_watch_data"
+    cached = get_cached(cache_key)
+    if cached: return {"success": True, "data": cached}
+
+    url = "https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=50"
+    headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers, timeout=10.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("data", {}).get("tokens", [])
+                whale_trades = []
+                import time
+                for item in items:
+                    # Skip common stables and native SOL
+                    if item.get("symbol") in ["SOL", "USDC", "USDT", "WSOL"]:
+                        continue
+
+                    vol = item.get("v24hUSD") or 0
+                    last_trade = item.get("lastTradeUnixTime") or 0
+                    time_ago = "Recently"
+                    if last_trade > 0:
+                        diff = int(time.time()) - last_trade
+                        if diff < 60: time_ago = "Just now"
+                        elif diff < 3600: time_ago = f"{diff // 60}m ago"
+                        else: time_ago = f"{diff // 3600}h ago"
+
+                    whale_trades.append({
+                        "id": f"whale-{item['address']}",
+                        "symbol": item["symbol"],
+                        "name": item.get("name", item["symbol"]),
+                        "address": item["address"],
+                        "logo": item.get("logoURI"),
+                        "amount": vol * 0.005, # Simulated trade size based on 24h vol
+                        "type": "BUY" if vol > 500000 else "SELL",
+                        "isSmart": vol > 2000000,
+                        "time": time_ago,
+                        "price": item.get("price"),
+                        "liquidity": item.get("liquidity"),
+                        "volume24hUSD": vol,
+                        "price24hChangePercent": item.get("v24hChangePercent")
+                    })
+                res_data = whale_trades[:12]
+                set_cached(cache_key, res_data, ttl=45) # 45s cache
+                return {"success": True, "data": res_data}
+            else:
+                return {"success": False, "error": f"Birdeye API Rate Limited (Status {resp.status_code})"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.get("/token-trades/{address}")
+async def get_token_trades(address: str):
+    """Fetches recent large transactions for a specific token."""
+    from app.services.bot import BIRDEYE_API_KEY, get_cached, set_cached
+    if not BIRDEYE_API_KEY:
+        return {"success": False, "error": "API Key missing"}
+
+    cache_key = f"trades_{address}"
+    cached = get_cached(cache_key)
+    if cached: return {"success": True, "data": cached}
+
+    url = f"https://public-api.birdeye.so/defi/txs/token?address={address}&offset=0&limit=15"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
     
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
-                # tokenlist returns data.tokens
-                items = resp.json().get("data", {}).get("tokens", [])
-                whale_trades = []
+                items = resp.json().get("data", {}).get("items", [])
+                trades = []
                 for item in items:
-                    # Skip common stables if we want "whales" in gems
-                    if item.get("symbol") in ["SOL", "USDC", "USDT"]:
-                        continue
-                        
-                    vol = item.get("v24hUSD", 0) or 0
-                    if vol > 1000:
-                        whale_trades.append({
-                            "id": f"whale-{item['address']}",
-                            "symbol": item["symbol"],
-                            "address": item["address"],
-                            "amount": vol * 0.005, # Simulated trade size based on 24h vol
-                            "type": "BUY" if vol > 500000 else "SELL",
-                            "isSmart": vol > 2000000,
-                            "time": "Just now"
-                        })
-                return {"success": True, "data": whale_trades[:8]}
-            else:
-                return {"success": False, "error": f"API Error {resp.status_code}"}
+                    trades.append({
+                        "id": item.get("tx_hash"),
+                        "side": item.get("side", "buy").upper(),
+                        "volume": item.get("volume_usd") or 0,
+                        "time": item.get("block_unix_time"),
+                        "source": item.get("source", "Raydium")
+                    })
+                set_cached(cache_key, trades, ttl=30) # 30s cache
+                return {"success": True, "data": trades}
     except Exception as e:
         return {"success": False, "error": str(e)}
+    return {"success": False, "error": "Failed to fetch trades"}

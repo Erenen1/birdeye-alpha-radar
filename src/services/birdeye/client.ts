@@ -8,7 +8,7 @@ import { BirdeyeResponse, TrendingToken, NewListingToken, TokenSecurity } from "
 import { BIRDEYE_BASE_URL, BIRDEYE_CHAIN } from "@/lib/constants";
 
 const cache = new Map<string, { data: any, timestamp: number }>();
-const CACHE_TTL = 30 * 1000; // 30 seconds
+const CACHE_TTL = 60 * 1000; // 60 seconds (Optimization)
 
 async function fetchBirdeye<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiKey = process.env.BIRDEYE_API_KEY;
@@ -52,16 +52,35 @@ async function fetchBirdeye<T>(endpoint: string, options: RequestInit = {}): Pro
 }
 
 export async function getTrendingTokens(): Promise<TrendingToken[]> {
-  const response = await fetchBirdeye<BirdeyeResponse<{ items: TrendingToken[] }>>("/defi/token_trending");
-  console.log("RAW BIRDEYE RESPONSE:", JSON.stringify(response).substring(0, 200));
-  return response.data?.items || (response.data as any)?.tokens || [];
+  try {
+    const response = await fetchBirdeye<BirdeyeResponse<{ tokens: TrendingToken[] }>>(
+      "/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=20"
+    );
+    return response.data?.tokens || [];
+  } catch (e) {
+    console.error("Trending fetch failed, falling back to Whale Watch proxy:", e);
+    try {
+      // Fallback: try to get data from our own backend which seems to have a more stable connection/limit
+      const res = await fetch("http://ml_service:8000/whale-watch");
+      const json = await res.json();
+      if (json.success) return json.data;
+    } catch (fallbackError) {
+      console.error("All trending fallbacks failed:", fallbackError);
+    }
+    return [];
+  }
 }
 
 export async function getNewListings(): Promise<NewListingToken[]> {
-  const response = await fetchBirdeye<BirdeyeResponse<{ items: NewListingToken[] }>>(
-    "/defi/v2/tokens/new_listing?limit=20"
-  );
-  return response.data?.items || [];
+  try {
+    const response = await fetchBirdeye<BirdeyeResponse<{ items: NewListingToken[] }>>(
+      "/defi/v2/tokens/new_listing?limit=20"
+    );
+    return response.data?.items || [];
+  } catch (e) {
+    console.error("New listings fetch failed:", e);
+    return [];
+  }
 }
 
 export async function getTokenOverview(address: string): Promise<any> {

@@ -310,19 +310,6 @@ export default function RadarDashboard({ initialTrending }: RadarDashboardProps)
 
         {/* Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-100">
-              Birdeye Sentinel{" "}
-              <span className="text-primary text-xs sm:text-sm font-medium ml-1 border border-primary/30 bg-primary/10 px-2 py-0.5 rounded-full">
-                v2.0 ML Auto-Scan
-              </span>
-            </h1>
-            <p className="text-gray-400 text-xs sm:text-sm mt-1">
-              Real-time Solana token discovery powered by AI.
-            </p>
-          </div>
-
-          {/* Mobile: Stats row */}
           <div className="sm:hidden flex items-center gap-2 overflow-x-auto pb-1">
             <div className="flex items-center gap-1.5 bg-surface border border-border rounded-full px-2.5 py-1 text-xs font-medium flex-shrink-0">
               <div className="h-3.5 w-3.5 rounded-full bg-gradient-to-tr from-purple-500 to-success flex items-center justify-center text-[7px] text-black">◎</div>

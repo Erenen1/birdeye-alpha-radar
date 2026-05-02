@@ -13,6 +13,32 @@ from app.core.schemas import TokenData
 # Use the root .env API key
 BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY")
 
+# ── Optimization: Redis Cache ─────────────────────────────────────────────
+import json
+import redis as redis_lib
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = None
+
+try:
+    redis_client = redis_lib.from_url(REDIS_URL, decode_responses=True)
+    print(f"Connected to Redis at {REDIS_URL}")
+except Exception as e:
+    print(f"Redis connection failed: {e}")
+
+def get_cached(key: str):
+    if not redis_client: return None
+    try:
+        val = redis_client.get(key)
+        return json.loads(val) if val else None
+    except: return None
+
+def set_cached(key: str, data: any, ttl: int = 300):
+    if not redis_client: return
+    try:
+        redis_client.setex(key, ttl, json.dumps(data))
+    except: pass
+
 async def fetch_new_listings():
     if not BIRDEYE_API_KEY:
         return []
@@ -66,6 +92,11 @@ async def fetch_token_overview(address: str):
 async def fetch_token_security(address: str) -> float:
     if not BIRDEYE_API_KEY:
         return 50.0
+    
+    cache_key = f"sec_{address}"
+    cached = get_cached(cache_key)
+    if cached is not None: return cached
+
     url = f"https://public-api.birdeye.so/defi/token_security?address={address}"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
     try:
@@ -78,6 +109,7 @@ async def fetch_token_security(address: str) -> float:
                 if not data.get("is_mintable") is False: score -= 30
                 if data.get("is_proxy"): score -= 20
                 if not data.get("is_mutable") is False: score -= 10
+                set_cached(cache_key, max(0, score))
                 return max(0, score)
     except Exception as e:
         print(f"Error fetching security: {e}")
@@ -92,6 +124,10 @@ async def analyze_top_traders(address: str):
     if not BIRDEYE_API_KEY:
         return 0.5, 0, 0, ""
     
+    cache_key = f"traders_{address}"
+    cached = get_cached(cache_key)
+    if cached: return cached
+
     url = f"https://public-api.birdeye.so/defi/v2/tokens/top_traders?address={address}&time_frame=24h&sort_type=desc&sort_by=volume&offset=0&limit=10"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
     
@@ -101,34 +137,29 @@ async def analyze_top_traders(address: str):
             if resp.status_code == 200:
                 items = resp.json().get("data", {}).get("items", [])
                 if not items:
-                    return 0.5, 0, 0, ""
+                    res = (0.5, 0, 0, "")
+                    set_cached(cache_key, res)
+                    return res
                 
                 # 1. Sybil Cluster Detection
-                # We look for identical trade volumes or PnLs which indicate bot-controlled clusters
                 volumes = [round(item.get("volumeUsd") or 0, 2) for item in items]
                 pnls = [round(item.get("totalPnl") or 0, 2) for item in items]
                 
                 unique_vols = len(set(volumes))
-                unique_pnls = len(set(pnls))
                 
-                # If many traders have the EXACT same volume/PnL, it's a Sybil attack
                 sybil_score = 0
                 if len(items) > 3:
                     sybil_score = (1 - (unique_vols / len(items))) * 100
                 
-                # 2. Whale Quality Index
-                # Aggregate PnL of top traders vs their volume
                 total_pnl = sum(pnls)
                 total_vol = sum(volumes)
                 
-                # Quality index: Higher if whales are consistently profitable (Smart Money)
                 whale_quality = 0
                 if total_vol > 0:
                     whale_quality = min(100, max(0, (total_pnl / (total_vol * 0.1)) * 50 + 50))
                 
                 buy_ratio = 0.8 if total_pnl > 0 else 0.2
                 
-                # 3. Descriptive Text
                 text = ""
                 if sybil_score > 40:
                     text += f"\n\n🚨 *SYBIL CLUSTER DETECTED:*\n{sybil_score:.0f}% of top traders show identical trading patterns. Highly likely to be a single entity (Bot Farm)."
@@ -138,7 +169,9 @@ async def analyze_top_traders(address: str):
                 elif total_vol > 10000:
                     text += f"\n\n⚠️ *WHALE ACTIVITY:*\nVolume: `${total_vol:,.0f}` | PnL: `${total_pnl:,.0f}`. Monitoring for breakout."
 
-                return buy_ratio, sybil_score, whale_quality, text
+                res = (buy_ratio, sybil_score, whale_quality, text)
+                set_cached(cache_key, res)
+                return res
     except Exception as e:
         print(f"Error in trader analysis: {e}")
     
@@ -174,55 +207,105 @@ def get_action_keyboard(address: str) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
+async def fetch_trending_tokens():
+    if not BIRDEYE_API_KEY:
+        return []
+    
+    cache_key = "trending_top_20"
+    cached = get_cached(cache_key)
+    if cached: return [TokenData(**t) for t in cached]
+
+    # Fetch tokens with high volume (likely to have whale activity)
+    url = "https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=20"
+    headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("data", {}).get("tokens", [])
+                tokens = []
+                for item in items:
+                    # Skip common stables
+                    if item.get("symbol") in ["SOL", "USDC", "USDT", "WSOL"]:
+                        continue
+                    tokens.append(TokenData(
+                        address=item.get("address", ""),
+                        symbol=item.get("symbol", "UNKNOWN"),
+                        name=item.get("name", ""),
+                        price=item.get("price"),
+                        liquidity=item.get("liquidity"),
+                        volume24hUSD=item.get("v24hUSD"),
+                        price24hChangePercent=item.get("v24hChangePercent")
+                    ))
+                set_cached(cache_key, [t.model_dump() for t in tokens], ttl=120) # 2 minute cache
+                return tokens
+    except Exception as e:
+        print(f"Error fetching trending: {e}")
+    return []
+
 async def background_scan(app: Application):
     chat_id = telegram_settings.chat_id
     if not chat_id:
         return
-    tokens = await fetch_new_listings()
+    
+    # Switch to Whale-centric scanning
+    tokens = await fetch_trending_tokens()
+    if not tokens:
+        return
+
     try:
-        model = ModelPersistence.load()
-        predictor = TokenPredictor(model)
-        
-        scored_tokens = []
-        for t in tokens:
-            # Enriched data for ML
-            security_score = await fetch_token_security(t.address)
+        whale_alerts = []
+        for t in tokens[:10]: # Check top 10 trending
             buy_ratio, sybil_score, whale_quality, analysis_text = await analyze_top_traders(t.address)
             
-            t.securityScore = security_score
-            t.smartMoneyBuyRatio = buy_ratio
-            t.sybilScore = sybil_score
-            t.whaleQualityIndex = whale_quality
-            
-            res = predictor.predict(t)
-            scored_tokens.append((t, res.alphaScore, res.riskScore, analysis_text))
-            
-        if not scored_tokens:
+            # Alert criteria: High whale quality OR Sybil detection
+            if whale_quality > 60 or sybil_score > 30:
+                whale_alerts.append({
+                    "token": t,
+                    "quality": whale_quality,
+                    "sybil": sybil_score,
+                    "analysis": analysis_text
+                })
+        
+        if not whale_alerts:
             return
             
-        # Sort by highest alpha, then lowest risk
-        scored_tokens.sort(key=lambda x: (x[1], -x[2]), reverse=True)
+        # Sort by whale quality
+        whale_alerts.sort(key=lambda x: x["quality"], reverse=True)
+        alert = whale_alerts[0]
+        t = alert["token"]
         
-        best_token, alpha, risk, smart_money_analysis = scored_tokens[0]
+        quality_bar = create_ascii_bar(alert["quality"])
         
-        # Broadcast the highest alpha token from this 3-minute window
-        if alpha >= 40: 
-            alpha_bar = create_ascii_bar(alpha)
-            risk_bar = create_ascii_bar(risk, is_risk=True)
-            thesis = get_quant_thesis(best_token, alpha, risk)
-            
-            msg = f"⚡ *AUTO QUANT ALERT: {best_token.symbol}*\n"
-            msg += f"`{best_token.address}`\n\n"
-            msg += f"📊 *Alpha:* {alpha_bar} `{alpha}/100`\n"
-            msg += f"🛡️ *Risk:*  {risk_bar} `{risk}/100`\n\n"
-            msg += f"💧 *Liq:* `${best_token.liquidity or 0:,.0f}` | 📈 *Vol:* `${best_token.volume24hUSD or 0:,.0f}`\n\n"
-            msg += thesis
-            msg += smart_money_analysis
+        msg = f"🐋 *WHALE ACTIVITY DETECTED: {t.symbol}*\n"
+        msg += f"`{t.address}`\n\n"
+        msg += f"📊 *Whale Quality:* {quality_bar} `{alert['quality']:.0f}/100`\n"
+        if alert['sybil'] > 20:
+            msg += f"🚨 *Sybil Risk:* `{alert['sybil']:.0f}%` (Bot Cluster Detected)\n"
+        
+        msg += f"\n💰 *Price:* `${t.price:,.4f}` | 📈 *24h Vol:* `${t.volume24hUSD:,.0f}`\n"
+        
+        # Add Thesis based on whale activity
+        if alert['quality'] > 80:
+            msg += "\n💡 *INSIGHT:* Institutional accumulation confirmed. Tier-1 wallets are consolidating. High breakout probability."
+        elif alert['sybil'] > 50:
+            msg += "\n⚠️ *WARNING:* Large volume is artificial. Sybil clusters are wash-trading to lure retail. Exercise extreme caution."
+        else:
+            msg += "\n💡 *INSIGHT:* Significant whale movement detected. Monitoring for liquidity expansion."
 
-            try:
-                await app.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown", reply_markup=get_action_keyboard(best_token.address))
-            except Exception as e:
-                print(f"Error sending bg alert: {e}")
+        msg += alert['analysis'] # Add the detailed analysis from the service
+
+        try:
+            await app.bot.send_message(
+                chat_id=chat_id, 
+                text=msg, 
+                parse_mode="Markdown", 
+                reply_markup=get_action_keyboard(t.address)
+            )
+        except Exception as e:
+            print(f"Error sending whale alert: {e}")
+            
     except Exception as e:
         print(f"Background scan error: {e}")
 
