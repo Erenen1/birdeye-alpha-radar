@@ -87,28 +87,35 @@ async def get_whale_watch():
     # We fetch big trades across the chain or for top trending tokens
     # For the hackathon demo, we poll the global trade stream if possible, 
     # or simulate based on trending tokens for better visual feedback.
-    url = "https://public-api.birdeye.so/defi/v2/tokens/new_listing?limit=5"
+    # Use tokenlist (no underscore) sorted by volume to ensure we get active tokens with data
+    url = "https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=20"
     headers = {"X-API-KEY": BIRDEYE_API_KEY, "x-chain": "solana"}
     
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
-                items = resp.json().get("data", {}).get("items", [])
+                # tokenlist returns data.tokens
+                items = resp.json().get("data", {}).get("tokens", [])
                 whale_trades = []
                 for item in items:
-                    # Simulation of trade analysis for the "Live Watch" feel
-                    vol = item.get("v24hUSD", 0)
-                    if vol > 5000:
+                    # Skip common stables if we want "whales" in gems
+                    if item.get("symbol") in ["SOL", "USDC", "USDT"]:
+                        continue
+                        
+                    vol = item.get("v24hUSD", 0) or 0
+                    if vol > 1000:
                         whale_trades.append({
                             "id": f"whale-{item['address']}",
                             "symbol": item["symbol"],
                             "address": item["address"],
-                            "amount": vol * 0.05, # Simulated trade size
-                            "type": "BUY" if vol > 10000 else "SELL",
-                            "isSmart": vol > 50000,
+                            "amount": vol * 0.005, # Simulated trade size based on 24h vol
+                            "type": "BUY" if vol > 500000 else "SELL",
+                            "isSmart": vol > 2000000,
                             "time": "Just now"
                         })
-                return {"success": True, "data": whale_trades}
+                return {"success": True, "data": whale_trades[:8]}
+            else:
+                return {"success": False, "error": f"API Error {resp.status_code}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
